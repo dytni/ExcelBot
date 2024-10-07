@@ -3,7 +3,7 @@ package com.dytni.parser;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.File;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,24 +30,46 @@ public class ExcelWriter {
         headerRow.createCell(1).setCellValue("Товары (работы, услуги)");
         headerRow.createCell(2).setCellValue("Кол-во");
         headerRow.createCell(3).setCellValue("Цена");
+        headerRow.createCell(4).setCellValue("Итог за товар");  // Новая колонка
+
+        double total = 0.0;
 
         // Заполняем данные
         for (int i = 0; i < numList.size(); i++) {
             Row row = sheet.createRow(i + 1);  // Начинаем с 1, т.к. строка 0 - это заголовок
 
             // Проверка на null и запись значения или пустой строки
-            row.createCell(0).setCellValue(numList.get(i) != null ? numList.get(i) : "");
-            row.createCell(1).setCellValue(productList.get(i) != null ? productList.get(i) : "");
+            String num = numList.get(i) != null ? numList.get(i) : "";
+            String product = productList.get(i) != null ? productList.get(i) : "";
+            double quantity = quantityList.get(i) != null ? quantityList.get(i) : 0.0;
+            double price = priceList.get(i) != null ? priceList.get(i) : 0.0;
 
-            // Для числовых значений: если null, записываем 0
-            row.createCell(2).setCellValue(quantityList.get(i) != null ? quantityList.get(i) : 0.0);
-            row.createCell(3).setCellValue(priceList.get(i) != null ? ((double) Math.round((priceList.get(i) * 1.2 * 1.3) * 100) / 100) : 0.0);
+            row.createCell(0).setCellValue(num);
+            row.createCell(1).setCellValue(product);
+            row.createCell(2).setCellValue(quantity);
+            row.createCell(3).setCellValue(price);
+
+            // Рассчитываем итог за товар (количество * цена)
+            double itemTotal = quantity * price;
+            row.createCell(4).setCellValue(itemTotal);  // Запись итога за товар
+
+            // Добавляем в итоговую сумму
+            total += itemTotal;
         }
 
         // Автоматическое выравнивание столбцов по содержимому
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {  // Теперь 5 колонок, включая "Итог за товар"
             sheet.autoSizeColumn(i);
         }
+
+        // Добавляем строку "Итого" в конце
+        Row totalRow = sheet.createRow(numList.size() + 1); // Следующая строка после данных
+        totalRow.createCell(1).setCellValue("Итого:");
+        totalRow.createCell(4).setCellValue(total); // Общая сумма в колонке "Итог за товар"
+
+        // Автоматическое выравнивание для новых строк
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(4);
 
         // Генерация уникального имени файла
         String fileName = generateFileName();

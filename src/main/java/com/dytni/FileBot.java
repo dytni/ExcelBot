@@ -1,6 +1,8 @@
-package com.dytni.bot;
+package com.dytni;
 
-import com.dytni.parser.ExcelParser;
+import com.dytni.repository.DataManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
@@ -17,6 +19,7 @@ import java.io.*;
 import java.net.URL;
 
 public class FileBot extends TelegramLongPollingBot {
+    private static final Logger logger = LoggerFactory.getLogger(FileBot.class);
 
     @Override
     public String getBotUsername() {
@@ -62,17 +65,11 @@ public class FileBot extends TelegramLongPollingBot {
 
             // Сохраняем файл локально
             java.io.File savedFile = saveFile(fileName, in);
-
-            // Передаем файл в метод для обработки
-
-
-
             sendTextMessage(chatId, "Файл " + fileName + " успешно сохранён и передан на обработку.");
-
             processExcelFile(savedFile, chatId);
 
-
         } catch (Exception e) {
+            logger.error("Ошибка при получении файла: {}", e.getMessage());
             sendTextMessage(chatId, "Ошибка при получении файла: " + e.getMessage());
         }
     }
@@ -82,7 +79,7 @@ public class FileBot extends TelegramLongPollingBot {
         java.io.File dir = new java.io.File("files");
         if (!dir.exists()) {
             if (dir.mkdirs()) {
-                System.out.println("Папка files успешно создана.");
+                logger.info("Папка files успешно создана.");
             } else {
                 throw new IOException("Не удалось создать папку для файлов.");
             }
@@ -95,14 +92,13 @@ public class FileBot extends TelegramLongPollingBot {
             while ((bytesRead = in.read(buffer)) != -1) {
                 fos.write(buffer, 0, bytesRead);
             }
-            System.out.println("Файл " + fileName + " успешно сохранён в " + savedFile.getAbsolutePath());
+            logger.info("Файл {} успешно сохранён в {}", fileName, savedFile.getAbsolutePath());
         } catch (IOException e) {
-            System.err.println("Ошибка при сохранении файла: " + e.getMessage());
+            logger.error("Ошибка при сохранении файла: {}", e.getMessage());
             throw e;
         }
         return savedFile;
     }
-
 
     private void sendTextMessage(Long chatId, String text) {
         SendMessage message = new SendMessage();
@@ -111,9 +107,10 @@ public class FileBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            logger.error("Ошибка при отправке текстового сообщения: {}", e.getMessage());
         }
     }
+
     private void sendFile(Long chatId, java.io.File file) {
         try {
             // Создаём объект для отправки файла
@@ -123,35 +120,33 @@ public class FileBot extends TelegramLongPollingBot {
 
             // Отправляем файл
             execute(sendDocument);
-            System.out.println("Файл " + file.getName() + " успешно отправлен пользователю.");
+            logger.info("Файл {} успешно отправлен пользователю.", file.getName());
             deleteFile(file);
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            logger.error("Ошибка при отправке файла: {}", e.getMessage());
             sendTextMessage(chatId, "Ошибка при отправке файла: " + e.getMessage());
         }
     }
 
     // Метод для обработки Excel-файлов
     private void processExcelFile(java.io.File file, Long chatId) {
-        // Здесь вы можете реализовать логику обработки Excel-файлов
-        System.out.println("Обработка файла: " + file.getAbsolutePath());
+        logger.info("Обработка файла: {}", file.getAbsolutePath());
         // Например, использовать Apache POI для парсинга файла
-        java.io.File outFile = new java.io.File(ExcelParser.parseExcelFile(file));
+        java.io.File outFile = new java.io.File(DataManager.parse(file));
         sendFile(chatId, outFile);
     }
 
     private void deleteFile(java.io.File file) {
         if (file.exists()) {
             if (file.delete()) {
-                System.out.println("Файл " + file.getName() + " успешно удалён.");
+                logger.info("Файл {} успешно удалён.", file.getName());
             } else {
-                System.err.println("Не удалось удалить файл " + file.getName() + ".");
+                logger.warn("Не удалось удалить файл {}.", file.getName());
             }
         } else {
-            System.err.println("Файл " + file.getName() + " не найден для удаления.");
+            logger.warn("Файл {} не найден для удаления.", file.getName());
         }
     }
-
 
     public static void main(String[] args) {
         // Инициализация бота
@@ -159,7 +154,7 @@ public class FileBot extends TelegramLongPollingBot {
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
             botsApi.registerBot(new FileBot());
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            logger.error("Ошибка при инициализации бота: {}", e.getMessage());
         }
     }
 }
